@@ -1,0 +1,6 @@
+{
+    "client_key": "CLIENT_KEY", 
+    "client_secret": "CLIENT_SECRET",
+    "base_url": "https://sierra-test.cincinnatilibrary.org:443/iii/sierra-api/v6/",
+    "db_connection_string": "postgresql://sqlturns:PASSWORD_HERE@sierra-test-db.cincinnatilibrary.org:1032/iii"
+}
