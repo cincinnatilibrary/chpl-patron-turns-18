@@ -16,3 +16,4 @@ config.json
 *.zip
 .ipynb_checkpoints
 __pycache__/
+*.log
