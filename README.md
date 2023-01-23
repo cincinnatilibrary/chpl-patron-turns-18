@@ -4,8 +4,13 @@ This script utilizes the Sierra REST API endpoint, `put /v6/patrons/{id}` to mod
 
 This script will query for:
 
-* patrons who have turned 18 years old since the last `script_run_date`
-* patron does not already have an existing "turns 18 message" applied to their record, or has had one applied to their card in the past. This check allows for the script to play "catch-up" if it hasn't been run for some time.
+* patrons who have turned 18 years old on the last `script_run_date`
+* patrons that are one of the following ptypes : 
+    ```python
+        (
+            0 , 1 , 2 , 5 , 6 , 7 , 30 , 31 , 32
+        )
+    ```
 
 The content of the body sent in the PUT request (`/v6/patrons/{id}`) will look like the following:
 
