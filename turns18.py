@@ -1,3 +1,9 @@
+# !pip install -U sqlalchemy
+# !pip install -U psycopg2-binary
+# !pip install -U requests
+
+# !pip freeze > requirements.txt
+
 # set up the logging
 # https://docs.python.org/3.7/howto/logging-cookbook.html#using-a-rotator-and-namer-to-customize-log-rotation-processing
 # https://docs.python.org/3/howto/logging-cookbook.html#using-a-rotator-and-namer-to-customize-log-rotation-processing
@@ -43,8 +49,11 @@ from datetime import datetime
 
 
 # read the configuration file
+config_file = 'config.json'
+logging.info(f"config_file: {config_file}")
+
 try:
-    with open("config.json", "r") as f:
+    with open(config_file, "r") as f:
         config = json.load(f)
 
     client_key = config["client_key"]
@@ -91,6 +100,10 @@ SELECT
     rm.record_num as patron_record_num,
     pr.ptype_code,
     pr.expiration_date_gmt::date as expiration_date,
+    CASE
+        when now()::date >= pr.expiration_date_gmt::date THEN TRUE
+        else FALSE
+    END AS is_expired,
     (
         select
             v.field_content
@@ -120,35 +133,52 @@ WHERE
 
 
 
-# this is the message we'll patch to the patron record
-data = {
-    "varFields": [
-    {
-      "fieldTag": "m",
-      "content": f"{datetime.now().strftime('%m/%d/%Y')} User turned 18.  Need agreement signed."
-    }
-  ]
-}
-
-
-
 with sierra_engine.connect() as connection:
     try:
         result = connection.execute(text(sql))
     except:
         logging.error('Could not execute sql')
         exit()
-
+        
     for i, row in enumerate(result):
         try:
+            # print(f"row['is_expired']: {row['is_expired']}")
+            # this is the data we'll patch to the patron record
+            # NOTE: set, `expirationDate` to current date if the patron has is_expired == FALSE
+            # ... otherwise, keep the old expiration date
+            if row['is_expired'] is False:
+                # update the expirationDate
+                json = {
+                    "expirationDate": datetime.now().strftime('%Y-%m-%d'),
+                    "varFields": [
+                        {
+                            "fieldTag": "m",
+                            "content": f"{datetime.now().strftime('%m/%d/%Y')} User turned 18.  Need agreement signed."
+                        }
+                      ]
+                }
+            else:
+                # don't update the expirationDate
+                json = {
+                    "varFields": [
+                        {
+                            "fieldTag": "m",
+                            "content": f"{datetime.now().strftime('%m/%d/%Y')} User turned 18.  Need agreement signed."
+                        }
+                      ]
+                }
+            # create the URL for the REST API
             url=f"{base_url}patrons/{row['patron_record_num']}"
+
+            # perform the API request
+            # print(row['expiration_date'], json)
             r = requests.put(
                 url=url,
                 headers=headers,
-                json=data
+                json=json
             )
             logging.info(f"{i} PUT: {url} patron_data: {row} status_code: {r.status_code}")
-
+        
         except:
             logging.error(f"Could not patch patron: {row['patron_record_num']}")
 
